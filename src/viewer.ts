@@ -15,6 +15,6 @@ export async function request(event: any, context: Context, callback: any) {
       }
     ];
   }
-
+  console.log(JSON.stringify(request));
   callback(null, request);
 }
