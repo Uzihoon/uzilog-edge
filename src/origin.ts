@@ -18,42 +18,43 @@ interface Result {
 }
 
 export async function request(event: any, context: Context, callback: any) {
-  // const request = event.Records[0].cf.request;
-  // const pattern = new UrlPattern("/post(/*)");
-  // const { headers, origin, uri } = request;
-  // const match = pattern.match(uri);
+  const request = event.Records[0].cf.request;
+  const pattern = new UrlPattern("/post(/*)");
+  const { headers, origin, uri } = request;
+  const match = pattern.match(uri);
 
-  // if (match._) {
-  //   let is_crawler: string;
+  if (match && match._) {
+    let is_crawler: string;
 
-  //   if ("is-crawler" in headers) {
-  //     is_crawler = headers["is-crawler"][0].value.toLowerCase();
-  //   }
+    if ("is-crawler" in headers) {
+      is_crawler = headers["is-crawler"][0].value.toLowerCase();
+    }
+    console.log(is_crawler);
 
-  //   if (is_crawler === "true") {
-  //     const postId = match._;
-  //     const params = {
-  //       TableName: process.env.TABLE_NAME,
-  //       Key: {
-  //         postId
-  //       }
-  //     };
-  //     const html = await s3
-  //       .getObject({ Bucket: process.env.S3_BUCKET, Key: process.env.S3_FILE })
-  //       .promise()
-  //       .then(data => data.Body.toString())
-  //       .catch(err => console.log(err));
+    if (is_crawler === "true") {
+      const postId = match._;
+      const params = {
+        TableName: process.env.tableName,
+        Key: {
+          postId
+        }
+      };
+      const html = await s3
+        .getObject({ Bucket: process.env.s3Bucket, Key: process.env.s3File })
+        .promise()
+        .then(data => data.Body.toString())
+        .catch(err => console.log(err));
+      console.log(html);
+      const result: Result = await dynamoDbLib.call("get", params);
 
-  //     const result: Result = await dynamoDbLib.call("get", params);
+      const title = result.Item.title;
+      const desc = result.Item.desc;
+      const parsed = parsingHTML(html, title, desc, postId);
 
-  //     const title = result.Item.title;
-  //     const desc = result.Item.desc;
-  //     const parsed = parsingHTML(html, title, desc, postId);
-
-  //     headers.host = [{ key: "Host", value: process.env.DOMAIN_NAME }];
-  //     origin.s3.domainName = process.env.DOMAIN_NAME;
-  //   }
-  // }
+      headers.host = [{ key: "Host", value: process.env.domainName }];
+      origin.s3.domainName = process.env.domainName;
+    }
+  }
   console.log(JSON.stringify(request));
   callback(null, request);
 }

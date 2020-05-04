@@ -9,15 +9,23 @@ custom:
 # Add the serverless-webpack plugin
 plugins:
   - serverless-webpack
-
 package:
   exclude:
+    - ./**
     - node_modules/**
+  include:
+    - src/**
 
 provider:
   name: aws
   runtime: nodejs12.x
   region: us-east-1
+  stage: pord
+  environment:
+    tableName: uzilog
+    domainName: uzilog
+    s3File: index.html
+    s3Bucket: uzilog-project
   iamRoleStatements:
     - Effect: Allow
       Action:
@@ -27,13 +35,30 @@ provider:
         - dynamodb:GetItem
       Resource: "arn:aws:dynamodb:ap-northeast-2:*:*"
 
+resources:
+  Resources:
+    LambdaAtEdgeRole:
+      Type: AWS::IAM::Role
+      Properties:
+        RoleName: lambda-at-edge-role
+        AssumeRolePolicyDocument:
+          Version: "2012-10-17"
+          Statement:
+            - Effect: Allow
+              Principal:
+                # we give access to the Lambda and Lambda@Edge service to assume our role
+                Service:
+                  - lambda.amazonaws.com
+                  - edgelambda.amazonaws.com
+              Action: sts:AssumeRole
+        ManagedPolicyArns:
+          # we are giving access to write to cloudwatch logs, managed policies are very permissive
+          # consider writing your own more restrictive policies
+          - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
 functions:
-  myLambdaAtEdge2:
-    handler: src/viewer.request;
-    events:
-      - cloudFront:
-          eventType: viewer-request
-          origin:
-            DomainName: duyf5qolb14b6.cloudfront.net
-            OriginPath: /*
-          authorizer: aws_iam
+  viewerRequest:
+    handler: src/viewer.request
+    role: LambdaAtEdgeRole
+  originRequest:
+    handler: src/origin.request
+    role: LambdaAtEdgeRole
