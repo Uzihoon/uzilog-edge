@@ -20,12 +20,8 @@ provider:
   name: aws
   runtime: nodejs12.x
   region: us-east-1
-  stage: pord
+  stage: prod
   environment:
-    tableName: uzilog
-    domainName: uzilog
-    s3File: index.html
-    s3Bucket: uzilog-project
   iamRoleStatements:
     - Effect: Allow
       Action:
@@ -40,7 +36,7 @@ resources:
     LambdaAtEdgeRole:
       Type: AWS::IAM::Role
       Properties:
-        RoleName: lambda-at-edge-role
+        RoleName: uzilog-edge
         AssumeRolePolicyDocument:
           Version: "2012-10-17"
           Statement:
@@ -59,6 +55,6 @@ functions:
   viewerRequest:
     handler: src/viewer.request
     role: LambdaAtEdgeRole
-  originRequest:
-    handler: src/origin.request
+  originResponse:
+    handler: src/origin.response
     role: LambdaAtEdgeRole

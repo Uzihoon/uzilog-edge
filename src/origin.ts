@@ -17,44 +17,63 @@ interface Result {
   };
 }
 
-export async function request(event: any, context: Context, callback: any) {
-  const request = event.Records[0].cf.request;
-  const pattern = new UrlPattern("/post(/*)");
-  const { headers, origin, uri } = request;
-  const match = pattern.match(uri);
+export async function response(event: any, context: Context, callback: any) {
+  try {
+    console.log("-----event-----");
+    console.log(JSON.stringify(event.Records[0].cf));
+    const { request, response } = event.Records[0].cf;
+    const pattern = new UrlPattern("/post(/*)");
+    const { headers, origin, uri } = request || {};
+    const match = pattern.match(uri);
 
-  if (match && match._) {
-    let is_crawler: string;
+    if (match && match._) {
+      // post로 조회하는 경우
+      let is_crawler: string;
 
-    if ("is-crawler" in headers) {
-      is_crawler = headers["is-crawler"][0].value.toLowerCase();
+      if ("is-crawler" in headers) {
+        is_crawler = headers["is-crawler"][0].value.toLowerCase();
+      }
+      console.log(is_crawler);
+
+      if (is_crawler === "true") {
+        const postId = match._;
+        const params = {
+          TableName: "uzilog",
+          Key: { postId }
+        };
+        console.log("-----params-----");
+
+        console.log(params);
+        const html = await s3
+          .getObject({ Bucket: "uzilog-project", Key: "index.html" })
+          .promise()
+          .then(data => data.Body.toString())
+          .catch(err => console.log(err));
+        console.log("-----html-----");
+        console.log(JSON.stringify(html));
+        const result: Result = await dynamoDbLib.call("get", params);
+        console.log("-----result-----");
+
+        console.log(JSON.stringify(result));
+        const title = result.Item.title;
+        const content = result.Item.content;
+        response.status = 200;
+        response.body = parsingHTML(html, title, content, postId);
+        response.headers["content-type"] = [
+          {
+            key: "Content-Type",
+            value: "text/html"
+          }
+        ];
+        console.log("-----response-----");
+
+        console.log(JSON.stringify(response));
+      }
     }
-    console.log(is_crawler);
-
-    if (is_crawler === "true") {
-      const postId = match._;
-      const params = {
-        TableName: process.env.tableName,
-        Key: {
-          postId
-        }
-      };
-      const html = await s3
-        .getObject({ Bucket: process.env.s3Bucket, Key: process.env.s3File })
-        .promise()
-        .then(data => data.Body.toString())
-        .catch(err => console.log(err));
-      console.log(html);
-      const result: Result = await dynamoDbLib.call("get", params);
-
-      const title = result.Item.title;
-      const desc = result.Item.desc;
-      const parsed = parsingHTML(html, title, desc, postId);
-
-      headers.host = [{ key: "Host", value: process.env.domainName }];
-      origin.s3.domainName = process.env.domainName;
-    }
+    console.log(JSON.stringify(response));
+    callback(null, response);
+  } catch (error) {
+    console.log("------ERROR------");
+    console.log(error);
   }
-  console.log(JSON.stringify(request));
-  callback(null, request);
 }
